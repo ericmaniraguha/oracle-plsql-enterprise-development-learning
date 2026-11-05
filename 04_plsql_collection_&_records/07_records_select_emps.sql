@@ -31,8 +31,8 @@ BEGIN
                          ' - Salary: ' || emp_rec.salary);
 
     /*
-    Expected output example:
-    Employee: John Doe - Salary: 5000
+    Expected output with the HR seed data:
+    Employee: Neena Kochhar - Salary: 17000
     */
 END;
 /
@@ -112,23 +112,28 @@ DECLARE
     emp_table emp_table_type;
 BEGIN
     -- Fetch multiple rows into the collection
+    -- FIXED: "WHERE ROWNUM <= 5" without ORDER BY returns ANY 5 rows, so
+    -- "the first 5 employees" was not guaranteed. ORDER BY + FETCH FIRST
+    -- returns the 5 lowest employee IDs every time, and Oracle can stop
+    -- reading the primary key index after 5 entries.
     SELECT employee_id, first_name BULK COLLECT INTO emp_table
     FROM employees
-    WHERE ROWNUM <= 5;
+    ORDER BY employee_id
+    FETCH FIRST 5 ROWS ONLY;
 
     -- Loop through collection
     FOR i IN 1..emp_table.COUNT LOOP
-        DBMS_OUTPUT.PUT_LINE('Employee ID: ' || emp_table(i).emp_id || 
+        DBMS_OUTPUT.PUT_LINE('Employee ID: ' || emp_table(i).emp_id ||
                              ', Name: ' || emp_table(i).name);
     END LOOP;
 
     /*
-    Expected output example (first 5 employees):
-    Employee ID: 101, Name: John
-    Employee ID: 102, Name: Alice
-    Employee ID: 103, Name: Bob
-    Employee ID: 104, Name: Mary
-    Employee ID: 105, Name: James
+    Expected output with the HR seed data (first 5 employees):
+    Employee ID: 100, Name: Steven
+    Employee ID: 101, Name: Neena
+    Employee ID: 102, Name: Lex
+    Employee ID: 103, Name: Alexander
+    Employee ID: 104, Name: Bruce
     */
 END;
 /

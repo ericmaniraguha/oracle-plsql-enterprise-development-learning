@@ -69,15 +69,14 @@ END;
 -- COMMIT;
 
 --------------------------------------------------------
--- 7?? Test: Inside another function
+-- 7. Test: Inside another function
 --------------------------------------------------------
-CREATE OR REPLACE FUNCTION double_total_income(p_salary NUMBER)
+CREATE OR REPLACE FUNCTION double_total_income(p_salary IN NUMBER)
 RETURN NUMBER
+DETERMINISTIC
 IS
-    v_total NUMBER;
 BEGIN
-    v_total := get_total_income(p_salary);
-    RETURN v_total * 2;
+    RETURN get_total_income(p_salary) * 2;
 END;
 /
 -- Test the new function

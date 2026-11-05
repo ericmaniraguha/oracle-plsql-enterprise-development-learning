@@ -17,3 +17,5 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('Job history inserted for employee ID ' || v_emp_id);
     COMMIT;
 END;
+/
+-- FIXED: added the "/" above. Without it SQL*Plus / SQL Developer never runs the block.

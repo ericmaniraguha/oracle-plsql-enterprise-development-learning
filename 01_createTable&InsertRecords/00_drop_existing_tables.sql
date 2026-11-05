@@ -1,7 +1,7 @@
 /*
 00_drop_existing_tables.sql
 
-Skip dropping objects if they don’t exist
+Skip dropping objects if they don't exist
 Modify your SQL scripts to only drop tables if they exist, e.g.:
 
 */

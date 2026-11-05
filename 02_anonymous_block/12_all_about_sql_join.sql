@@ -10,6 +10,8 @@ SET SERVEROUTPUT ON;
 -- Write a block to display all employees along with their department names.
 -- Columns: Employee ID, Full Name, Salary, Department Name.
 -- Sort by Employee ID ascending.
+-- FIXED: LEFT JOIN, because "all employees" includes employee 178, who has
+-- no department. An inner join would silently drop that row.
 
 DECLARE
 BEGIN
@@ -18,9 +20,9 @@ BEGIN
         SELECT e.employee_id,
                e.first_name || ' ' || e.last_name AS full_name,
                e.salary,
-               d.department_name
+               NVL(d.department_name, 'No department') AS department_name
         FROM employees e
-        JOIN departments d
+        LEFT JOIN departments d
           ON e.department_id = d.department_id
         ORDER BY e.employee_id
     ) LOOP
@@ -60,26 +62,34 @@ END;
 -- ========================================================
 -- Question 3: Employees above Department Average Salary
 -- ========================================================
+-- FIXED: the old query used AVG(...) OVER (...) inside WHERE, which Oracle
+-- rejects with ORA-30483 ("window functions are not allowed here").
+-- Window functions are evaluated AFTER the WHERE clause, so compute the
+-- average in an inline view first and filter it in the outer query.
+-- This is still a single pass over EMPLOYEES.
 DECLARE
 BEGIN
     DBMS_OUTPUT.PUT_LINE('--- Employees Above Department Average Salary ---');
     FOR rec IN (
-        SELECT e.employee_id,
-               e.first_name || ' ' || e.last_name AS full_name,
-               e.salary,
-               d.department_name,
-               AVG(e.salary) OVER (PARTITION BY e.department_id) AS dept_avg
-        FROM employees e
-        JOIN departments d
-          ON e.department_id = d.department_id
-        WHERE e.salary > AVG(e.salary) OVER (PARTITION BY e.department_id)
-        ORDER BY d.department_name, e.salary DESC
+        SELECT employee_id, full_name, salary, department_name, dept_avg
+        FROM (
+            SELECT e.employee_id,
+                   e.first_name || ' ' || e.last_name AS full_name,
+                   e.salary,
+                   d.department_name,
+                   AVG(e.salary) OVER (PARTITION BY e.department_id) AS dept_avg
+            FROM employees e
+            JOIN departments d
+              ON e.department_id = d.department_id
+        )
+        WHERE salary > dept_avg
+        ORDER BY department_name, salary DESC
     ) LOOP
         DBMS_OUTPUT.PUT_LINE('ID: ' || rec.employee_id ||
                              ' | Name: ' || rec.full_name ||
                              ' | Salary: ' || rec.salary ||
                              ' | Dept: ' || rec.department_name ||
-                             ' | Dept Avg: ' || rec.dept_avg);
+                             ' | Dept Avg: ' || ROUND(rec.dept_avg, 2));
     END LOOP;
 END;
 /
@@ -96,7 +106,7 @@ BEGIN
         FROM departments d
         LEFT JOIN employees e
           ON d.department_id = e.department_id
-        GROUP BY d.department_name
+        GROUP BY d.department_id, d.department_name  -- group by the key: names may repeat
         ORDER BY d.department_name
     ) LOOP
         DBMS_OUTPUT.PUT_LINE('Dept: ' || rec.department_name ||

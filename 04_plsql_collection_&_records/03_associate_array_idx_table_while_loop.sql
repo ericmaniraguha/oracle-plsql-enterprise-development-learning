@@ -1,4 +1,4 @@
--- 1 – Associative Array (Index-by Table)
+-- 1 - Associative Array (Index-by Table)
 SET SERVEROUTPUT ON;
 
 DECLARE
@@ -8,21 +8,27 @@ DECLARE
     TYPE emp_array IS TABLE OF VARCHAR2(50) INDEX BY PLS_INTEGER;
 
     -- Step 2: Declare a variable of this type
-    employees emp_array;
+    -- RENAMED from "employees": a variable with the same name as the
+    -- EMPLOYEES table makes the code hard to read (is "employees" the
+    -- table or the array?). Give PL/SQL variables names that cannot be
+    -- confused with database objects.
+    emp_names emp_array;
 
     -- Step 3: Iterator variable for looping through keys
     v_id PLS_INTEGER;
 BEGIN
     -- Step 4: Populate the associative array
-    employees(101) := 'Alice';
-    employees(102) := 'Bob';
-    employees(103) := 'Charlie';
+    emp_names(101) := 'Alice';
+    emp_names(102) := 'Bob';
+    emp_names(103) := 'Charlie';
 
     -- Step 5: Loop through all keys to display employee names
-    v_id := employees.FIRST;  -- Get first key
+    -- FIRST / NEXT visits only the keys that exist, so it also works for
+    -- sparse arrays (e.g. keys 101, 205, 9000), unlike FOR i IN 1..COUNT.
+    v_id := emp_names.FIRST;  -- Get first key
     WHILE v_id IS NOT NULL LOOP
-        DBMS_OUTPUT.PUT_LINE('Employee ID ' || v_id || ' ? ' || employees(v_id));
-        v_id := employees.NEXT(v_id);  -- Move to next key
+        DBMS_OUTPUT.PUT_LINE('Employee ID ' || v_id || ' -> ' || emp_names(v_id));
+        v_id := emp_names.NEXT(v_id);  -- Move to next key
     END LOOP;
 END;
 /

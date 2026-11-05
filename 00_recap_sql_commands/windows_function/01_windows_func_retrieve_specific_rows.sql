@@ -25,19 +25,23 @@ WITH ranked_employees AS (
 
 SELECT *
 FROM ranked_employees
-WHERE 
+WHERE
     rn IN (1, 2, 5, 105, 150)   -- first two, 5th, 105th, 150th rows
-    OR rn > total_rows - 10;    -- last 10 rows
+    OR rn > total_rows - 10     -- last 10 rows
+ORDER BY rn;                    -- without ORDER BY, row order is not guaranteed
 
 
--- Alternative (simpler window-only logic)
+-- Alternative for the last 10 rows only (simpler window-only logic)
+-- OPTIMIZED: numbering in DESC order means no COUNT(*) OVER () is needed,
+-- and Oracle can stop after the first 10 rows of the sort.
 
 WITH ranked AS (
-    SELECT 
+    SELECT
         e.*,
         ROW_NUMBER() OVER (ORDER BY employee_id DESC) AS rn
     FROM employees e
 )
 SELECT *
 FROM ranked
-WHERE rn <= 10;
+WHERE rn <= 10
+ORDER BY employee_id;

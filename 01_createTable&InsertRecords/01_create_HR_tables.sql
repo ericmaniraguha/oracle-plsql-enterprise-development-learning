@@ -3,76 +3,53 @@
 This script creates all necessary tables, sequences, indexes, constraints, and views 
 for the HR schema in Oracle. 
 
-? Run this script AFTER creating the HR user (script 01) 
+Run this script AFTER creating the HR user (script 01) 
    and while logged in as that HR user.
 
-? Tip: If running in a fresh PDB, DROP statements will fail if objects do not exist.
+Tip: If running in a fresh PDB, DROP statements will fail if objects do not exist.
       Consider removing or wrapping them in conditional PL/SQL blocks for production.
 */
 
 -- ----------------------------
--- 1?? Optional DROP statements
+-- 1. Optional DROP statements
 -- ----------------------------
--- Remove only if objects exist (skip errors in fresh setup)
+-- OPTIMIZED: one block instead of ten, and it ignores ONLY "object does not
+-- exist". The old "WHEN OTHERS THEN NULL" also hid real problems such as
+-- ORA-00054 (table locked) or missing privileges, so the script carried on
+-- and then failed later with a confusing "name is already used" error.
+DECLARE
+   PROCEDURE drop_if_exists (p_ddl VARCHAR2, p_missing_code PLS_INTEGER) IS
+   BEGIN
+      EXECUTE IMMEDIATE p_ddl;
+   EXCEPTION
+      WHEN OTHERS THEN
+         IF SQLCODE != p_missing_code THEN
+            RAISE;
+         END IF;
+   END drop_if_exists;
 BEGIN
-   EXECUTE IMMEDIATE 'DROP TABLE job_history CASCADE CONSTRAINTS';
-EXCEPTION WHEN OTHERS THEN NULL; END;
-/
+   drop_if_exists('DROP TABLE job_history CASCADE CONSTRAINTS', -942);
+   drop_if_exists('DROP TABLE departments CASCADE CONSTRAINTS', -942);
+   drop_if_exists('DROP TABLE employees CASCADE CONSTRAINTS',   -942);
+   drop_if_exists('DROP TABLE jobs CASCADE CONSTRAINTS',        -942);
+   drop_if_exists('DROP TABLE locations CASCADE CONSTRAINTS',   -942);
+   drop_if_exists('DROP TABLE countries CASCADE CONSTRAINTS',   -942);
+   drop_if_exists('DROP TABLE regions CASCADE CONSTRAINTS',     -942);
 
-BEGIN
-   EXECUTE IMMEDIATE 'DROP TABLE departments CASCADE CONSTRAINTS';
-EXCEPTION WHEN OTHERS THEN NULL; END;
-/
-
-BEGIN
-   EXECUTE IMMEDIATE 'DROP TABLE employees CASCADE CONSTRAINTS';
-EXCEPTION WHEN OTHERS THEN NULL; END;
-/
-
-BEGIN
-   EXECUTE IMMEDIATE 'DROP TABLE jobs CASCADE CONSTRAINTS';
-EXCEPTION WHEN OTHERS THEN NULL; END;
-/
-
-BEGIN
-   EXECUTE IMMEDIATE 'DROP TABLE locations CASCADE CONSTRAINTS';
-EXCEPTION WHEN OTHERS THEN NULL; END;
-/
-
-BEGIN
-   EXECUTE IMMEDIATE 'DROP TABLE countries CASCADE CONSTRAINTS';
-EXCEPTION WHEN OTHERS THEN NULL; END;
-/
-
-BEGIN
-   EXECUTE IMMEDIATE 'DROP TABLE regions CASCADE CONSTRAINTS';
-EXCEPTION WHEN OTHERS THEN NULL; END;
-/
-
--- Drop sequences safely
-BEGIN
-   EXECUTE IMMEDIATE 'DROP SEQUENCE locations_seq';
-EXCEPTION WHEN OTHERS THEN NULL; END;
-/
-
-BEGIN
-   EXECUTE IMMEDIATE 'DROP SEQUENCE departments_seq';
-EXCEPTION WHEN OTHERS THEN NULL; END;
-/
-
-BEGIN
-   EXECUTE IMMEDIATE 'DROP SEQUENCE employees_seq';
-EXCEPTION WHEN OTHERS THEN NULL; END;
+   drop_if_exists('DROP SEQUENCE locations_seq',   -2289);  -- -2289 = sequence does not exist
+   drop_if_exists('DROP SEQUENCE departments_seq', -2289);
+   drop_if_exists('DROP SEQUENCE employees_seq',   -2289);
+END;
 /
 
 -- ----------------------------
--- 2?? Session Settings
+-- 2. Session Settings
 -- ----------------------------
 ALTER SESSION SET NLS_LANGUAGE=American;
 ALTER SESSION SET NLS_TERRITORY=America;
 
 -- ----------------------------
--- 3?? Regions Table
+-- 3. Regions Table
 -- ----------------------------
 CREATE TABLE regions (
   region_id NUMBER CONSTRAINT regions_id_nn NOT NULL,
@@ -86,7 +63,7 @@ ALTER TABLE regions
 ADD CONSTRAINT reg_id_pk PRIMARY KEY (region_id);
 
 -- ----------------------------
--- 4?? Countries Table
+-- 4. Countries Table
 -- ----------------------------
 CREATE TABLE countries (
   country_id CHAR(2) CONSTRAINT country_id_nn NOT NULL,
@@ -102,7 +79,7 @@ FOREIGN KEY (region_id)
 REFERENCES regions(region_id);
 
 -- ----------------------------
--- 5?? Locations Table
+-- 5. Locations Table
 -- ----------------------------
 CREATE TABLE locations (
   location_id    NUMBER(4),
@@ -131,7 +108,7 @@ CREATE SEQUENCE locations_seq
   NOCYCLE;
 
 -- ----------------------------
--- 6?? Departments Table
+-- 6. Departments Table
 -- ----------------------------
 CREATE TABLE departments (
   department_id    NUMBER(4),
@@ -158,7 +135,7 @@ CREATE SEQUENCE departments_seq
   NOCYCLE;
 
 -- ----------------------------
--- 7?? Jobs Table
+-- 7. Jobs Table
 -- ----------------------------
 CREATE TABLE jobs (
   job_id     VARCHAR2(10),
@@ -176,7 +153,7 @@ ADD (
 );
 
 -- ----------------------------
--- 8?? Employees Table
+-- 8. Employees Table
 -- ----------------------------
 CREATE TABLE employees (
   employee_id    NUMBER(6),
@@ -218,7 +195,7 @@ CREATE SEQUENCE employees_seq
   NOCYCLE;
 
 -- ----------------------------
--- 9?? Job History Table
+-- 9. Job History Table
 -- ----------------------------
 CREATE TABLE job_history (
   employee_id   NUMBER(6) CONSTRAINT jhist_employee_nn NOT NULL,
@@ -241,7 +218,7 @@ ADD (
 );
 
 -- ----------------------------
--- ? Employee Details View
+-- Employee Details View
 -- ----------------------------
 CREATE OR REPLACE VIEW emp_details_view
 (employee_id, job_id, manager_id, department_id, location_id, country_id,

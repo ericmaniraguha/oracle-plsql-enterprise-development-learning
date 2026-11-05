@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Title      : PL/SQL Collections and Exception Handling Examples
 -- Author     : Eric Maniraguha
--- Purpose    : Demonstrates the use of different PL/SQL collections 
+-- Purpose    : Demonstrates the use of different PL/SQL collections
 --              (associative arrays, nested tables, nested table of records)
 --              along with exception handling mechanisms including:
 --                1. User-defined exceptions
@@ -17,6 +17,15 @@
 --   - Illustrates safe data access using EXISTS() check
 --   - Demonstrates handling errors during computations
 --   - Shows how to use BULK COLLECT with exception handling
+--   - Shows SQL%ROWCOUNT after a BULK COLLECT query
+--
+-- FIXES:
+--   - The old comment said %ROWCOUNT does not work with BULK COLLECT.
+--     It does: after SELECT ... BULK COLLECT INTO, SQL%ROWCOUNT holds the
+--     number of rows fetched. Exercise 3 now demonstrates it.
+--   - Exercise 3 reused e_invalid_key ("invalid array key") to mean "no rows
+--     found". It now has its own exception, e_no_rows.
+--   - WHEN OTHERS handlers now re-raise instead of swallowing the error.
 -- ============================================================================
 SET SERVEROUTPUT ON;
 
@@ -50,6 +59,9 @@ DECLARE
     TYPE emp_table_type IS TABLE OF emp_rec_type;
     emp_list emp_table_type;
 
+    -- User-defined exception for "query returned no rows"
+    e_no_rows EXCEPTION;
+
 BEGIN
     ---------------------------------------------------------------------
     -- Exercise 1: Associative Array Example
@@ -63,12 +75,17 @@ BEGIN
 
     v_id := 102;  -- Example key
 
-    -- Check existence before accessing
-    IF NOT employees_arr.EXISTS(v_id) THEN
-        RAISE e_invalid_key;
-    END IF;
+    BEGIN
+        -- Check existence before accessing
+        IF NOT employees_arr.EXISTS(v_id) THEN
+            RAISE e_invalid_key;
+        END IF;
 
-    DBMS_OUTPUT.PUT_LINE('Employee ID ' || v_id || ' ? ' || employees_arr(v_id));
+        DBMS_OUTPUT.PUT_LINE('Employee ID ' || v_id || ' -> ' || employees_arr(v_id));
+    EXCEPTION
+        WHEN e_invalid_key THEN
+            DBMS_OUTPUT.PUT_LINE('User-defined exception: key ' || v_id || ' does not exist.');
+    END;
 
     ---------------------------------------------------------------------
     -- Exercise 2: Nested Table Example
@@ -104,16 +121,21 @@ BEGIN
 
     BEGIN
         -- Collect employees with salary > 5000
+        -- (a BULK COLLECT query never raises NO_DATA_FOUND; it returns an
+        --  empty collection instead, so we check the count ourselves)
         SELECT employee_id, first_name, salary
         BULK COLLECT INTO emp_list
         FROM employees
-        WHERE salary > 5000;
+        WHERE salary > 5000
+        ORDER BY salary DESC;
 
-        -- Show how many rows were collected
-        DBMS_OUTPUT.PUT_LINE('Number of employees retrieved: ' || emp_list.COUNT);
+        -- SQL%ROWCOUNT = number of rows the BULK COLLECT fetched.
+        -- Read it immediately, before any other SQL statement runs.
+        DBMS_OUTPUT.PUT_LINE('SQL%ROWCOUNT after BULK COLLECT: ' || SQL%ROWCOUNT);
+        DBMS_OUTPUT.PUT_LINE('Number of employees retrieved (COUNT): ' || emp_list.COUNT);
 
         IF emp_list.COUNT = 0 THEN
-            RAISE e_invalid_key;
+            RAISE e_no_rows;
         END IF;
 
         -- Loop through collected records
@@ -123,20 +145,16 @@ BEGIN
             );
         END LOOP;
 
-        -- Demonstrate %ROWCOUNT after a SELECT INTO (for demonstration, simulate with explicit loop)
-        -- Note: %ROWCOUNT directly works with DML (INSERT, UPDATE, DELETE), not BULK COLLECT SELECT
-        -- Here we just display the count collected
         DBMS_OUTPUT.PUT_LINE('Processed ' || emp_list.COUNT || ' employee records.');
 
     EXCEPTION
-        WHEN e_invalid_key THEN
+        WHEN e_no_rows THEN
             DBMS_OUTPUT.PUT_LINE('User-defined exception: No employees found with salary > 5000.');
-        WHEN OTHERS THEN
-            DBMS_OUTPUT.PUT_LINE('Unexpected error in Exercise 3: ' || SQLERRM);
     END;
 
 EXCEPTION
     WHEN OTHERS THEN
         DBMS_OUTPUT.PUT_LINE('Unexpected error in main block: ' || SQLERRM);
+        RAISE;   -- report it, but do not hide it
 END;
 /

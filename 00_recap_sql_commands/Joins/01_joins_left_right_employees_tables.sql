@@ -23,6 +23,10 @@
 -- ============================================
 -- 2. ANSWERS
 -- ============================================
+-- OPTIMIZATION NOTE (ANS4-ANS7):
+-- Group by the key (department_id) as well as the name. Two departments
+-- may share a name, and grouping by name alone would silently merge them.
+-- Grouping by the primary key is always correct and costs nothing extra.
 
 -- ANS1 (JOIN)
 SELECT e.first_name || ' ' || e.last_name AS full_name,
@@ -54,7 +58,7 @@ SELECT d.department_name,
 FROM departments d
 LEFT JOIN employees e
 ON d.department_id = e.department_id
-GROUP BY d.department_name;
+GROUP BY d.department_id, d.department_name;
 
 
 -- ANS5 (AVG)
@@ -63,7 +67,7 @@ SELECT d.department_name,
 FROM departments d
 JOIN employees e
 ON d.department_id = e.department_id
-GROUP BY d.department_name;
+GROUP BY d.department_id, d.department_name;
 
 
 -- ANS6 (MAX)
@@ -72,7 +76,7 @@ SELECT d.department_name,
 FROM departments d
 JOIN employees e
 ON d.department_id = e.department_id
-GROUP BY d.department_name;
+GROUP BY d.department_id, d.department_name;
 
 
 -- ANS7 (HAVING)
@@ -81,7 +85,7 @@ SELECT d.department_name,
 FROM departments d
 JOIN employees e
 ON d.department_id = e.department_id
-GROUP BY d.department_name
+GROUP BY d.department_id, d.department_name
 HAVING SUM(e.salary) > 2000;
 
 

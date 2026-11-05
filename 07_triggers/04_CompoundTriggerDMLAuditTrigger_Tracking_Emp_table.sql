@@ -1,13 +1,45 @@
 /* ============================================================
    TITLE: Compound DML Audit Trigger for Tracking INSERT, UPDATE,
           DELETE Operations and Affected Rows on Employees Table
+
+   WHY A COMPOUND TRIGGER?
+   A plain statement-level trigger cannot see how many rows the statement
+   changed (see 04_DMLAuditTrigger_Tracking_Emp_table.sql). A row-level
+   trigger can count rows, but would write one audit row PER employee.
+   A compound trigger does both: it counts in AFTER EACH ROW (cheap, memory
+   only) and writes ONE audit row in AFTER STATEMENT.
+
+   FIXES:
+   - Step 0 drops the audit triggers of the other lessons. Each lesson
+     re-creates EMPLOYEES_AUDIT with different columns, and a leftover
+     trigger becomes INVALID, which makes every INSERT/UPDATE/DELETE on
+     EMPLOYEES fail with ORA-04098.
+   - The test INSERT no longer lists a BONUS column (EMPLOYEES only has it
+     after 03_store_procedure/07_ems_savepoint_rollback.sql has run).
+   - db_user is VARCHAR2(128): user names can be up to 128 characters.
+   - The test ends with ROLLBACK so the demo does not change the HR data.
    ============================================================ */
 
 
 /* ============================================================
+   STEP 0: REMOVE AUDIT TRIGGERS LEFT BY THE OTHER LESSONS
+   ============================================================ */
+BEGIN
+    FOR t IN (
+        SELECT trigger_name
+        FROM user_triggers
+        WHERE trigger_name IN ('EMP_AUDIT_TRG', 'EMP_AUDIT_TRIGGER', 'EMP_AUDIT_TAX_TRIGGER')
+    ) LOOP
+        -- DBMS_ASSERT.ENQUOTE_NAME quotes the name safely for dynamic SQL
+        EXECUTE IMMEDIATE 'DROP TRIGGER ' || DBMS_ASSERT.ENQUOTE_NAME(t.trigger_name);
+    END LOOP;
+END;
+/
+
+/* ============================================================
    STEP 1: DROP AUDIT TABLE IF IT EXISTS
    ============================================================ */
-BEGIN 
+BEGIN
     EXECUTE IMMEDIATE 'DROP TABLE employees_audit CASCADE CONSTRAINTS';
 EXCEPTION
     WHEN OTHERS THEN
@@ -25,34 +57,24 @@ CREATE TABLE employees_audit(
     action_type VARCHAR2(50),
     action_date DATE,
     affected_rows NUMBER,
-    db_user VARCHAR2(52),
+    db_user VARCHAR2(128),
     session_id VARCHAR2(50)
 );
 
 /* ============================================================
-   STEP 3: DROP TRIGGER IF IT EXISTS
-   ============================================================ */
-BEGIN
-    EXECUTE IMMEDIATE 'DROP TRIGGER emp_audit_trg';
-EXCEPTION
-    WHEN OTHERS THEN
-        IF SQLCODE != -4080 THEN
-            RAISE;
-        END IF;
-END;
-/
-
-/* ============================================================
-   STEP 4: CREATE COMPOUND TRIGGER
+   STEP 3: CREATE COMPOUND TRIGGER
    - Counts rows at row-level
    - Inserts audit once at statement-level
+   (CREATE OR REPLACE already replaces an existing trigger, so no
+    separate DROP TRIGGER step is needed.)
    ============================================================ */
 CREATE OR REPLACE TRIGGER emp_audit_trg
 FOR INSERT OR UPDATE OR DELETE ON employees
 COMPOUND TRIGGER
 
-    /* Shared variable across all timing points */
-    v_total  NUMBER := 0;
+    /* Shared variables across all timing points.
+       They are re-initialized for every triggering statement. */
+    v_total  PLS_INTEGER := 0;
     v_action VARCHAR2(50);
 
     /* ========================================================
@@ -61,18 +83,18 @@ COMPOUND TRIGGER
        ======================================================== */
     BEFORE STATEMENT IS
     BEGIN
-        IF INSERTING THEN 
+        IF INSERTING THEN
             v_action := 'INSERT STATEMENT';
-        ELSIF UPDATING THEN 
+        ELSIF UPDATING THEN
             v_action := 'UPDATE STATEMENT';
-        ELSIF DELETING THEN 
+        ELSIF DELETING THEN
             v_action := 'DELETE STATEMENT';
         END IF;
     END BEFORE STATEMENT;
 
     /* ========================================================
        AFTER EACH ROW
-       - Increment counter for each affected row
+       - Increment counter for each affected row (no SQL here)
        ======================================================== */
     AFTER EACH ROW IS
     BEGIN
@@ -105,30 +127,35 @@ END;
 /
 
 /* ============================================================
-   STEP 5: TEST THE TRIGGER
+   STEP 4: TEST THE TRIGGER
    ============================================================ */
 
 /* Insert test */
 INSERT INTO employees (
-    EMPLOYEE_ID, FIRST_NAME, LAST_NAME, EMAIL, PHONE_NUMBER, 
-    HIRE_DATE, JOB_ID, SALARY, COMMISSION_PCT, 
-    MANAGER_ID, DEPARTMENT_ID, BONUS
-) 
+    EMPLOYEE_ID, FIRST_NAME, LAST_NAME, EMAIL, PHONE_NUMBER,
+    HIRE_DATE, JOB_ID, SALARY, COMMISSION_PCT,
+    MANAGER_ID, DEPARTMENT_ID
+)
 VALUES (
-    56, 'Eric', 'TEST', 'eric@example.com', '0780000000', 
-    SYSDATE, 'IT_PROG', 6000, NULL, NULL, 20, 300
+    56, 'Eric', 'TEST', 'eric@example.com', '0780000000',
+    SYSDATE, 'IT_PROG', 6000, NULL, NULL, 20
 );
 
-/* Update test */
-UPDATE employees 
-SET salary = salary + 1000 
+/* Update test (3 rows in department 20) */
+UPDATE employees
+SET salary = salary + 1000
 WHERE department_id = 20;
 
 /* Delete test */
-DELETE FROM employees 
+DELETE FROM employees
 WHERE employee_id = 56;
 
 /* ============================================================
-   STEP 6: VERIFY AUDIT RESULTS
+   STEP 5: VERIFY AUDIT RESULTS
+   Expect 3 rows: INSERT (1 row), UPDATE (3 rows), DELETE (1 row)
    ============================================================ */
-SELECT * FROM employees_audit;
+SELECT * FROM employees_audit ORDER BY audit_id;
+
+/* Demo only: undo the test changes (and their audit rows).
+   Use COMMIT instead if you want to keep them. */
+ROLLBACK;

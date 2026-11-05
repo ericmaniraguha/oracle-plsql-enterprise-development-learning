@@ -13,7 +13,7 @@ INSERT INTO regions (region_id, region_name) VALUES (4, 'Middle East and Africa'
 
 INSERT INTO countries (country_id, country_name, region_id) VALUES ('IT', 'Italy', 1);
 INSERT INTO countries (country_id, country_name, region_id) VALUES ('JP', 'Japan', 3);
-INSERT INTO countries (country_id, country_name, regQion_id) VALUES ('US', 'United States of America', 2);
+INSERT INTO countries (country_id, country_name, region_id) VALUES ('US', 'United States of America', 2);
 INSERT INTO countries (country_id, country_name, region_id) VALUES ('CA', 'Canada', 2);
 INSERT INTO countries (country_id, country_name, region_id) VALUES ('CN', 'China', 3);
 INSERT INTO countries (country_id, country_name, region_id) VALUES ('IN', 'India', 3);
@@ -612,8 +612,10 @@ COMMIT;
 
 --  CREATE TABLE OF ALLOWANCES 
 
+-- OPTIMIZED: added a primary key so lookups and deletes by ALLOWANCE_ID
+-- (see 05_plsql_cursors/03_update_procedure_cursors.sql) use an index.
 CREATE TABLE ALLOWANCES (
-    ALLOWANCE_ID NUMBER,
+    ALLOWANCE_ID NUMBER CONSTRAINT allowances_pk PRIMARY KEY,
     ALLOWANCE_AMOUNT NUMBER,
     EFFECTIVE_DATE DATE,
     DEPARTMENT_ID NUMBER
@@ -623,12 +625,14 @@ CREATE TABLE ALLOWANCES (
 Corrected version
 If you want the ALLOWANCES table to store department-based allowances:
 
+- Skips employees with no department (a NULL department allowance is meaningless).
+- Sorts the departments before ROWNUM is applied, so the IDs are the same on every run.
 */
 
 INSERT INTO ALLOWANCES (ALLOWANCE_ID, ALLOWANCE_AMOUNT, EFFECTIVE_DATE, DEPARTMENT_ID)
-SELECT 
+SELECT
     ROWNUM + 20,
-    CASE 
+    CASE
         WHEN dept_id = 30 THEN 1000
         WHEN dept_id = 60 THEN 1500
         ELSE 500
@@ -638,4 +642,16 @@ SELECT
 FROM (
     SELECT DISTINCT DEPARTMENT_ID AS dept_id
     FROM EMPLOYEES
+    WHERE DEPARTMENT_ID IS NOT NULL
+    ORDER BY dept_id
 );
+
+COMMIT;
+
+-- OPTIMIZED: gather optimizer statistics once the data is loaded.
+-- Conventional INSERTs do not gather statistics, and the optimizer needs
+-- them to choose good execution plans (index vs. full scan, join order).
+BEGIN
+    DBMS_STATS.GATHER_SCHEMA_STATS(ownname => USER);
+END;
+/

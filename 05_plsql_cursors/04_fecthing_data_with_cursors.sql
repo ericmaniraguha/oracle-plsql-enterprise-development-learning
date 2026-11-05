@@ -1,5 +1,9 @@
+SET SERVEROUTPUT ON;
+
 DECLARE
     -- Declare a cursor variable (pointer)
+    -- (Oracle also provides the built-in weak type SYS_REFCURSOR, which saves
+    --  you declaring your own REF CURSOR type; see 08_sys_refcursor.sql.)
     TYPE emp_ref_cursor IS REF CURSOR;
     c_emp emp_ref_cursor;
 
@@ -11,7 +15,8 @@ BEGIN
     OPEN c_emp FOR
         SELECT employee_id, first_name
         FROM employees
-        WHERE department_id = 30;
+        WHERE department_id = 30
+        ORDER BY employee_id;
 
     -- Loop through the cursor
     LOOP
@@ -23,3 +28,5 @@ BEGIN
     -- Close the cursor variable
     CLOSE c_emp;
 END;
+/
+-- FIXED: added the "/" above; without it the block is never executed.
