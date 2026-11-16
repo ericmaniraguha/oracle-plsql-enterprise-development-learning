@@ -13,13 +13,15 @@ DECLARE
     -- Step 2: Define a nested table to hold multiple employee records
     TYPE emp_table_type IS TABLE OF emp_rec_type;
     emp_list emp_table_type;
-    
+
 BEGIN
     -- Step 3: Fetch employees with salary > 5000 into the nested table
+    -- BULK COLLECT fetches all matching rows in one round trip.
     SELECT employee_id, first_name, salary
     BULK COLLECT INTO emp_list
     FROM employees
-    WHERE salary > 5000;
+    WHERE salary > 5000
+    ORDER BY salary DESC;   -- added: without ORDER BY the order is not guaranteed
 
     -- Step 4: Loop through nested table to display each employee
     FOR i IN 1..emp_list.COUNT LOOP

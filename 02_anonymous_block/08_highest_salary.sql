@@ -3,6 +3,9 @@
 -- ========================================================
 -- Question:
 -- Find and print the employee with the highest salary.
+-- Note: SELECT INTO expects exactly ONE row. If two employees tie for the
+-- highest salary it raises TOO_MANY_ROWS. 08_highest_salary_exception.sql
+-- shows how to handle that.
 DECLARE
     v_first_name employees.first_name%TYPE;
     v_last_name employees.last_name%TYPE;

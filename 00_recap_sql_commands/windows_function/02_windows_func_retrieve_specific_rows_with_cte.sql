@@ -9,6 +9,7 @@ WITH ranked_employees AS (
 )
 SELECT *
 FROM ranked_employees
-WHERE 
+WHERE
     rn IN (1, 2, 5, 105, 150)
-    OR rn > total_rows - 10;
+    OR rn > total_rows - 10
+ORDER BY rn;

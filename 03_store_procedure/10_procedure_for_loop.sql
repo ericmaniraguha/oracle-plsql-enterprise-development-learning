@@ -26,12 +26,13 @@ BEGIN
     END IF;
 
 EXCEPTION
-    -- Handles invalid input types (e.g., user enters text instead of number)
+    -- Handles numeric problems at run time (e.g., a value too large for a loop bound).
+    -- Note: substitution variables are replaced as TEXT before the block compiles,
+    -- so typing letters gives a compile error (PLS-00201), not VALUE_ERROR.
     WHEN VALUE_ERROR THEN
         DBMS_OUTPUT.PUT_LINE('Error: Please enter valid numeric values.');
 
-    -- Handles any other unexpected errors
-    WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('Unexpected Error: ' || SQLERRM);
+    -- Removed "WHEN OTHERS THEN PUT_LINE(SQLERRM)": it turned every unexpected
+    -- error (including our own ORA-20001 above) into a silent success.
 END;
 /

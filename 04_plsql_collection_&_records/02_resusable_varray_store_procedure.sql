@@ -8,7 +8,7 @@ SET SERVEROUTPUT ON;
 -- =====================================================
 
 CREATE OR REPLACE PROCEDURE display_score (
-    p_index NUMBER   -- Parameter: position of the score to display
+    p_index IN PLS_INTEGER   -- Parameter: position of the score to display
 )
 AS
     -- Step 1: Define a VARRAY type with a maximum size of 5
@@ -23,14 +23,19 @@ BEGIN
     );
 
 -- Step 4: Handle possible errors
+-- FIXED: added SUBSCRIPT_OUTSIDE_LIMIT (index > 5 or < 1), and removed
+-- "WHEN OTHERS THEN PUT_LINE('Unexpected error occurred.')", which hid the
+-- real error message from the caller.
 EXCEPTION
     WHEN SUBSCRIPT_BEYOND_COUNT THEN
         DBMS_OUTPUT.PUT_LINE(
-            'Error: Index exceeds the number of elements in the VARRAY.'
+            'Error: Index ' || p_index || ' exceeds the number of elements (' || scores.COUNT || ').'
         );
 
-    WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('Unexpected error occurred.');
+    WHEN SUBSCRIPT_OUTSIDE_LIMIT THEN
+        DBMS_OUTPUT.PUT_LINE(
+            'Error: Index ' || p_index || ' is outside the VARRAY limit (1 to ' || scores.LIMIT || ').'
+        );
 END;
 /
 
@@ -46,3 +51,7 @@ END;
 EXEC display_score(1);
 
 EXECUTE display_score(3);
+
+-- Invalid positions
+EXEC display_score(4);
+EXEC display_score(9);

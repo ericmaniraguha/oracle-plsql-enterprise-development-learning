@@ -110,7 +110,7 @@ FROM emp_manager
 WHERE manager IS NOT NULL;
 
 
--- ANS6 (MULTIPLE CTEs ?)
+-- ANS6 (MULTIPLE CTEs)
 WITH dept_avg AS (
     SELECT department_id, AVG(salary) AS avg_salary
     FROM employees
@@ -125,4 +125,18 @@ FROM emp_data e
 JOIN dept_avg d
 ON e.department_id = d.department_id
 WHERE e.salary > d.avg_salary;
+
+
+-- ANS6 (OPTIMIZED: one pass with an analytic function)
+-- The version above reads EMPLOYEES twice: once to build the averages and
+-- once more to join back. AVG() OVER (PARTITION BY ...) computes each
+-- department's average on the same single read of the table.
+WITH emp_with_avg AS (
+    SELECT first_name, salary, department_id,
+           AVG(salary) OVER (PARTITION BY department_id) AS dept_avg_salary
+    FROM employees
+)
+SELECT first_name, salary, department_id
+FROM emp_with_avg
+WHERE salary > dept_avg_salary;
 
